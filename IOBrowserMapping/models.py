@@ -1,6 +1,8 @@
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models import IntegerField
+
 
 # Create your models here.
 plc_choices = [
@@ -8,12 +10,13 @@ plc_choices = [
     ]
 
 visual = [
-    ('Conveyor', 'ConveyorVisual')
+    ('ConveyorVisual', 'ConveyorVisual')
 ]
 
 OBJECTS = [
     ('', ''),
     ('Axis', 'Axis'),
+    ('Sensor', 'Sensor'),
     ('Command', 'Command'),
 
 ]
@@ -26,12 +29,28 @@ OPERATORS = [
     ('icontains','icontains'),
 ]
 
+LOGIC_OPERATORS = [
+    ('AND', 'AND'),
+    ('OR', 'OR'),
+    ('NOT', 'NOT'),
+]
+
 OBJECTS_FIELDS = [
-    ('prefix', 'prefix'),
+    ('code', 'code'),
     ('number', 'number'),
     ('type', 'type'),
     # ('property', 'property'),
     # ('value', 'value'),
+]
+
+NATURE_FILES = [
+    ('IO BROWSER', 'IO BROWSER'),
+]
+
+ACCESS_CHOICES = [
+    ('ReadFromPLC', 'ReadFromPLC'),
+    ('WriteToPLC', 'WriteToPLC'),
+    ('Bidirectional', 'Bidirectional')
 ]
 
 class Project(models.Model):
@@ -60,12 +79,21 @@ class PLC(models.Model):
     def __str__(self):
         return self.name
 
-class Object(models.Model):
-    prefix = models.CharField(max_length=10)
-    number = models.CharField(max_length=10)
-    type = models.CharField(max_length=10, choices=plc_choices, blank=True, null=True)
-    visual = models.CharField(max_length=10, choices=visual, null=True)
-    property = models.CharField(max_length=10, null=True)
+class ObjectType(models.Model):
+    code = models.CharField(max_length=10, unique=True, blank=False)
+    type = models.CharField(max_length=10, choices=OBJECTS, blank=True)
+
+    def __str__(self):
+        return self.code
+
+class Variable(models.Model):
+    item = models.CharField(max_length=25)
+    axis = models.CharField(max_length=10, blank=True)
+    command = models.CharField(max_length=25, blank=True)
+    address = models.CharField(max_length=25)
+    access = models.CharField(max_length=25, choices=ACCESS_CHOICES)
+    visual = models.CharField(max_length=25, choices=visual, null=True, blank=True)
+    property = models.CharField(max_length=25, null=True, blank=True)
 
     content_type = models.ForeignKey(
         ContentType,
@@ -79,16 +107,52 @@ class Object(models.Model):
     parent = GenericForeignKey('content_type', 'object_id')
 
     def __str__(self):
-        print(self.parent)
-        if isinstance(self.parent, Project):
-            return self.prefix + self.number
-        else:
-            return str(self.parent) + '.' + self.prefix +self.number
+        return self.item
 
-class Operation(models.Model):
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    operator = models.CharField(max_length=10, choices=OPERATORS, blank=True, null=True)
+class LogicOperation(models.Model):
+    operator = models.CharField(max_length=10, choices=LOGIC_OPERATORS, null=True)
+    # object = models.ManyToManyField('IOBrowserMapping.models.TestOnModel')
+
+    """def __str__(self):
+        objects = self.object.all()
+        return (" " + self.operator + " " ).join([str(obj) for obj in self.object.all()])"""
 
 
 class ObjectField(models.Model):
     field = models.CharField(max_length=10, choices=OBJECTS_FIELDS)
+
+class ActionOnModel(models.Model):
+    field = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
+    value = models.CharField(max_length=25, null=True)
+
+class TestOnModel(models.Model):
+    # on_model = models.ForeignKey('Variable', on_delete=models.CASCADE)
+    field = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
+    operator = models.CharField(max_length=25, choices=OPERATORS, blank=True, null=True)
+    value = models.CharField(max_length=25, null=True)
+    # objs = models.ManyToManyField('IOBrowserMapping.models.TestOnModel')
+    action = models.ManyToManyField(ActionOnModel)
+
+    def __str__(self):
+        return f"is {self.field} {self.operator} {self.value}?"
+
+
+    def __str__(self):
+        return f"fill field {self.field} with value: {self.value}"
+
+
+class ImportFile(models.Model):
+    date_created = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(upload_to='imports/')
+    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+    nature = models.CharField(max_length=10, null=True, choices=NATURE_FILES)
+
+    def __str__(self):
+        return self.file.name
+
+class ProcessFile(models.Model):
+    file = models.ForeignKey('ImportFile', on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+
+
