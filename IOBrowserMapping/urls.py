@@ -17,11 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from IOBrowserMapping.views import apply_tests, process_import_file, apply_action_on_variables
+from IOBrowserMapping.views import apply_tests, process_import_file, apply_action_on_variables, \
+    export_project_variables
 
 urlpatterns = [
 
     path('filter/', apply_tests, name='filter'),
     path('data/', process_import_file, name='data'),
     path('apply_actions/', apply_action_on_variables, name='apply_actions'),
+    path('export-variables/', export_project_variables, name='export_variables'),
 ]

@@ -62,6 +62,19 @@ class Project(models.Model):
     def __str__(self):
         return self.code
 
+    def get_variables(self):
+        variables = Variable.objects.filter(
+            content_type=ContentType.objects.get(model='project'),
+            object_id=self.id,
+        )
+        server = Server.objects.get(project=self)
+
+
+        data = [
+            [str(var), server.plc.name, var.access, var.address, var.visual, var.property] for var in variables
+        ]
+        return data
+
 class Server(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     plc = models.ForeignKey('PLC', on_delete=models.CASCADE)
@@ -69,8 +82,16 @@ class Server(models.Model):
     address = models.GenericIPAddressField()
     location = models.CharField(max_length=10, choices=plc_choices)
     dll_path = models.CharField(max_length=200)
+
     def __str__(self):
         return self.function + "://" + self.address + "/" + self.location
+
+    def server_cfg(self):
+        cfg = [
+            [self.plc.name, "Address.Address", self.__str__()],
+            [self.plc.name, self.location, self.dll_path],
+        ]
+        return cfg
 
 class PLC(models.Model):
     name = models.CharField(max_length=25)
@@ -107,7 +128,8 @@ class Variable(models.Model):
     parent = GenericForeignKey('content_type', 'object_id')
 
     def __str__(self):
-        return self.item
+        return self.item + '.' + self.axis + '.' + self.command
+
 
 class LogicOperation(models.Model):
     operator = models.CharField(max_length=10, choices=LOGIC_OPERATORS, null=True)
@@ -125,6 +147,9 @@ class ActionOnModel(models.Model):
     field = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
     value = models.CharField(max_length=25, null=True)
 
+    def __str__(self):
+        return f"fill field {self.field} with value: {self.value}"
+
 class TestOnModel(models.Model):
     # on_model = models.ForeignKey('Variable', on_delete=models.CASCADE)
     field = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
@@ -137,21 +162,19 @@ class TestOnModel(models.Model):
         return f"is {self.field} {self.operator} {self.value}?"
 
 
-    def __str__(self):
-        return f"fill field {self.field} with value: {self.value}"
-
-
 class ImportFile(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to='imports/')
+    file = models.FileField(upload_to='data/imports/')
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     nature = models.CharField(max_length=10, null=True, choices=NATURE_FILES)
 
     def __str__(self):
         return self.file.name
 
-class ProcessFile(models.Model):
-    file = models.ForeignKey('ImportFile', on_delete=models.CASCADE)
+class ExportFile(models.Model):
+    project = models.ForeignKey('Project', on_delete=models.CASCADE)
+    # nature = models.CharField(max_length=10, null=True, choices=NATURE_FILES)
+    file = models.FileField(upload_to='data/exports/')
     date_created = models.DateTimeField(auto_now_add=True)
 
 

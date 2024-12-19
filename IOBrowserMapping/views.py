@@ -1,11 +1,13 @@
-from argparse import Action
+import os
 
+import pandas as pd
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.contenttypes.models import ContentType
+from django.core.files import File
 from django.http import HttpResponse
 from django.shortcuts import render
 # from IOBrowserMapping.keep_code import build_q
-from IOBrowserMapping.models import TestOnModel, Variable, ImportFile, Project, ActionOnModel
+from IOBrowserMapping.models import TestOnModel, Variable, ImportFile, Project, ActionOnModel, Server, ExportFile
 from IOBrowserMapping.utils import read_data
 
 
@@ -85,6 +87,36 @@ def apply_action_on_variables(request):
 # tests = project.
 
 
+def export_project_variables(request):
+    project = Project.objects.get(pk=1)
+    server = Server.objects.get(project=project)
+    cfg = pd.DataFrame(
+        server.server_cfg(),
+        columns=["Server", "Key", "Value"],
+    )
+    data = pd.DataFrame(
+        project.get_variables(),
+        columns=["Item", "Server", "Access", "Address", "Visual", "Property"]
+    )
+
+
+    temp_path = "./IO_browser_data.xlsx"
+    with pd.ExcelWriter(temp_path) as writer:
+        data.to_excel(writer, sheet_name="Demo3D Siemens Tags", index=False)
+        cfg.to_excel(writer, sheet_name="Demo3D Siemens Configuration", index=False)
+    with open(temp_path, "rb") as f:
+        file = File(
+            f,
+            name=temp_path,
+        )
+
+        ExportFile.objects.create(
+            file = file,
+            project = project,
+        )
+        file.close()
+        os.remove(temp_path)
+    return HttpResponse(data.to_html())
 
 
 
