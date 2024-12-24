@@ -7,7 +7,7 @@ from django.core.files import File
 from django.http import HttpResponse
 from django.shortcuts import render
 # from IOBrowserMapping.keep_code import build_q
-from IOBrowserMapping.models import TestOnModel, Variable, ImportFile, Project, ActionOnModel, Server, ExportFile
+from IOBrowserMapping.models import Rule, Variable, ImportFile, Project, ActionOnModel, Server, ExportFile
 from IOBrowserMapping.utils import read_data
 
 
