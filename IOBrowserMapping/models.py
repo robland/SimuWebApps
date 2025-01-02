@@ -5,21 +5,34 @@ from django.db import models
 from django.db.models import IntegerField
 from django.utils.html import format_html
 
+
 # Create your models here.
 plc_choices = [
         ('Siemens', 'Siemens')
     ]
 
-visual = [
+E3D_MAPPING_FIELD = (
+        ('Visual', 'Visual'),
+        ('Property', 'Property')
+)
+
+VISUALS = [
     ('ConveyorVisual', 'ConveyorVisual')
 ]
 
-OBJECTS = [
-    ('', ''),
-    ('Axis', 'Axis'),
-    ('Sensor', 'Sensor'),
-    ('Command', 'Command'),
+E3D_PROPERTIES = [
+    ('AtLowerLimit', 'AtLowerLimit'),
+    ('IsMoving', 'IsMoving'),
+    ('State', 'State'),
+    ('Forwards', 'Forwards'),
+    ('Reverse', 'Reverse'),
+    ('IsMotorOn', 'IsMotorOn'),
+]
 
+E3D_OBJECTS = [
+    ('Item', 'Item '),
+    ('Axis', 'Axis'),
+    ('Command', 'Command'),
 ]
 
 OPERATORS = [
@@ -53,6 +66,9 @@ ACCESS_CHOICES = [
     ('WriteToPLC', 'WriteToPLC'),
     ('Bidirectional', 'Bidirectional')
 ]
+BASE_OBJECTS = ['GME', 'GM', 'GLA', 'GLB', 'UAH', 'GMA', 'GMD']
+AXIS_VALUES = ['TX', 'TY', 'TZ', 'LX', 'LY', 'LZ', 'RX', 'RY', 'RZ']
+
 
 class Project(models.Model):
     code = models.CharField(max_length=10, unique=True)
@@ -64,13 +80,8 @@ class Project(models.Model):
         return self.code
 
     def get_variables(self):
-        variables = Variable.objects.filter(
-            content_type=ContentType.objects.get(model='project'),
-            object_id=self.id,
-        )
+        variables = Variable.objects.filter(project=self)
         server = Server.objects.get(project=self)
-
-
         data = [
             [str(var), server.plc.name, var.access, var.address, var.visual, var.property] for var in variables
         ]
@@ -81,7 +92,6 @@ class Project(models.Model):
         child = format_html('<img src="/static/admin/img/icon-addlink.svg" alt="" width="20" height="20">')
         html = '<a class ="related-widget-wrapper-link add-related" id="add_id_form-0-server" data-popup="yes" href="/admin/IOBrowserMapping/server/add/?_to_field=id&amp;_popup=1" title="Add new server" > {}</a>'.format(child)
         return format_html(html)
-
 
     def add_plc(self, pk):
         plc = PLC.objects.get_or_create(pk=pk)[0]
@@ -120,7 +130,7 @@ class PLC(models.Model):
 
 class ObjectType(models.Model):
     code = models.CharField(max_length=10, unique=True, blank=False)
-    type = models.CharField(max_length=10, choices=OBJECTS, blank=True)
+    type = models.CharField(max_length=10, choices=E3D_OBJECTS, blank=True)
 
     def __str__(self):
         return self.code
@@ -134,14 +144,12 @@ class Variable(models.Model):
     axis = models.CharField(max_length=10, blank=True)
     command = models.CharField(max_length=25, blank=True)
     address = models.CharField(max_length=25)
-    access = models.CharField(max_length=25, choices=ACCESS_CHOICES)
-    visual = models.CharField(max_length=25, choices=visual, null=True, blank=True)
+    access = models.CharField(max_length=25, ) # choices=ACCESS_CHOICES
+    visual = models.CharField(max_length=25, null=True, blank=True) # choices=VISUALS
     property = models.CharField(max_length=25, null=True, blank=True)
 
     def __str__(self):
         return self.item + '.' + self.axis + '.' + self.command
-
-
 
 
 class LogicOperation(models.Model):
@@ -156,29 +164,36 @@ class ObjectField(models.Model):
     field = models.CharField(max_length=10, choices=OBJECTS_FIELDS)
 
 class ActionOnModel(models.Model):
-    field = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
-    value = models.CharField(max_length=25, null=True)
-
-    def __str__(self):
-        return f"fill field {self.field} with value: {self.value}"
+    project = models.ForeignKey('Project', on_delete=models.CASCADE)
+    visual = models.CharField(max_length=25, choices=VISUALS, null=True, blank=True)
+    property = models.CharField(max_length=25, choices=E3D_PROPERTIES, null=True, blank=True)
+    # field = models.CharField(max_length=25, choices=E3D_MAPPING_FIELD)
+    # value = models.CharField(max_length=25, null=True)
+    rules = models.ManyToManyField('RuleOnField')
 
 class Rule(models.Model):
     project = models.ForeignKey('Project', on_delete=models.CASCADE)
-    object = models.CharField(max_length=25, choices=OBJECTS_FIELDS)
-    axis =  models.CharField(max_length=25)
+    object = models.CharField(max_length=25, choices=tuple(zip(BASE_OBJECTS, BASE_OBJECTS)))
+    axis =  models.CharField(max_length=25, choices=tuple(zip(AXIS_VALUES, AXIS_VALUES)))
     # operator = models.CharField(max_length=25, choices=OPERATORS, blank=True, null=True)
-    target = models.CharField(
-        max_length=25,
-        choices=(
-            ('Visual', 'Visual'),
-            ('Property', 'Property'),
-        )
-    )
-    value = models.CharField(max_length=25, null=True)
+    visual = models.CharField(max_length=25, choices=VISUALS, null=True, blank=True)
+    property = models.CharField(max_length=25, choices=E3D_PROPERTIES, null=True, blank=True)
 
     def __str__(self):
         return f"{self.object} {self.axis} ---> "
 
+class RuleOnField(models.Model):
+    # project = models.ForeignKey('Project', on_delete=models.CASCADE)
+    field = models.CharField(max_length=25, choices=E3D_OBJECTS)
+    operator = models.CharField(max_length=25, choices=OPERATORS, blank=True, null=True)
+    value = models.CharField(max_length=25, null=True)
+    order = models.IntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.field.upper()} {self.operator} {self.value}"
+
+    def get_keys_values(self):
+        return self.field.lower() + "__" + self.operator.lower(), self.value.lower()
 
 class ImportFile(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)

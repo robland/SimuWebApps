@@ -1,14 +1,18 @@
+import io
 import os
 
 import pandas as pd
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
-from django.http import HttpResponse
-from django.shortcuts import render
+from django.http import HttpResponse, FileResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse
+
 # from IOBrowserMapping.keep_code import build_q
 from IOBrowserMapping.models import Rule, Variable, ImportFile, Project, ActionOnModel, Server, ExportFile
 from IOBrowserMapping.utils import read_data
+
 
 
 # Create your views here.
@@ -34,8 +38,8 @@ def apply_tests(request):
 def admin_import_file(request):
     pass
 
-def process_import_file(request):
-    file_object = ImportFile.objects.get(pk=2)
+def process_import_file(request, pk):
+    file_object = ImportFile.objects.get(pk=4)
     data = read_data(
         file_object.file.name
     )
@@ -48,8 +52,7 @@ def process_import_file(request):
                 command=row[3],
                 address="%" + row[5] + row[6],
                 access=row[7],
-                content_type=ContentType.objects.get(app_label="IOBrowserMapping", model='project'),
-                object_id=1
+                project=file_object.project,
             )
 
     data.apply(
@@ -60,63 +63,34 @@ def process_import_file(request):
     return HttpResponse(data.to_html())
 
 
-def apply_action_on_variables(request):
-    project = Project.objects.get(pk=1)
-    list_actions = ActionOnModel.objects.all()
+def apply_action_on_variables(request, pk):
 
-    if len(list_actions) != 0:
-        queryset = Variable.objects.all()
-        for action in list_actions:
-            field = action.field
-            value = action.value
+    file_import = ImportFile.objects.get(pk=pk)
+    project = file_import.project
+    servers = file_import.project.server_set.all()
+    rules = Rule.objects.filter(project=project)
+    queryset = Variable.objects.filter(project=project)
 
-            filters = action.testonmodel_set.all()
-            kwgs = {f.field + "__" + f.operator: f.value for f in filters}
-            print(kwgs)
-            queryset = queryset.filter(**kwgs)
+    view_name = "admin:{}_{}_history".format(
+        project._meta.app_label,
+        project._meta.model_name
+    )
 
-            #for obj in queryset:
-            key_value = {field: value }
-            print(key_value)
-            queryset.update(**key_value)
-        return HttpResponse(queryset)
-    else:
-        return HttpResponse("Nothing to do!")
+    for server in servers:
+        for rule in rules:
+            item = rule.object
+            axis = rule.axis
+
+            queryset.filter(item__icontains=item, axis__icontains=axis)
+            queryset.update(visual=rule.visual, property=rule.property)
+
+    return redirect(reverse(view_name, args=[project.pk]))
+
 
 # variables = Variable.objects.filter(project=project)
 # tests = project.
 
 
-def export_project_variables(request):
-    project = Project.objects.get(pk=1)
-    server = Server.objects.get(project=project)
-    cfg = pd.DataFrame(
-        server.server_cfg(),
-        columns=["Server", "Key", "Value"],
-    )
-    data = pd.DataFrame(
-        project.get_variables(),
-        columns=["Item", "Server", "Access", "Address", "Visual", "Property"]
-    )
-
-
-    temp_path = "./IO_browser_data.xlsx"
-    with pd.ExcelWriter(temp_path) as writer:
-        data.to_excel(writer, sheet_name="Demo3D Siemens Tags", index=False)
-        cfg.to_excel(writer, sheet_name="Demo3D Siemens Configuration", index=False)
-    with open(temp_path, "rb") as f:
-        file = File(
-            f,
-            name=temp_path,
-        )
-
-        ExportFile.objects.create(
-            file = file,
-            project = project,
-        )
-        file.close()
-        os.remove(temp_path)
-    return HttpResponse(data.to_html())
 
 
 

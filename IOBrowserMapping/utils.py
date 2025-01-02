@@ -1,11 +1,9 @@
 import os
 import re
-
 import pandas as pd
 
 
 def read_data(filename):
-    data = None
     extension = os.path.splitext(filename)[1]
     if extension == '.csv':
         data = pd.read_csv(filename, delimiter=';', header=None)
@@ -19,7 +17,6 @@ def read_data(filename):
     )
     return processed_data
 
-
 def get_direction(address):
     if address.startswith("%Q"):
         return "ReadFromPLC"
@@ -27,7 +24,6 @@ def get_direction(address):
         return "WriteToPLC"
     if address.startswith("%M"):
         return "Bidirectional"
-
 
 def transform_line_to_four_columns(value):
     # Extraire les valeurs du module, numéro, et identifiant
