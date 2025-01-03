@@ -1,18 +1,11 @@
-import io
-import os
-
-import pandas as pd
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.contenttypes.models import ContentType
-from django.core.files import File
-from django.http import HttpResponse, FileResponse
-from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.urls import reverse
 
 # from IOBrowserMapping.keep_code import build_q
-from IOBrowserMapping.models import Rule, Variable, ImportFile, Project, ActionOnModel, Server, ExportFile
+from IOBrowserMapping.models import Rule, Variable, ImportFile
 from IOBrowserMapping.utils import read_data
-
 
 
 # Create your views here.
@@ -54,7 +47,6 @@ def process_import_file(request, pk):
                 access=row[7],
                 project=file_object.project,
             )
-
     data.apply(
         get_or_create,
         axis=1,

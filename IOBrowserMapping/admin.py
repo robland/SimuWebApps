@@ -1,10 +1,5 @@
-from django.contrib import admin
-from django.contrib.auth.models import User
-from django.forms import ModelForm
-from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 
-from .forms import RuleForm
 from .mixins import ActionsMixin
 from .models import *
 
@@ -54,7 +49,7 @@ class ProjectAdmin(admin.ModelAdmin, ActionsMixin):
 
 @admin.register(Variable)
 class VariableAdmin(admin.ModelAdmin):
-    search_fields = ['item', 'visual', 'command', 'property']
+    search_fields = ['item', 'visual', 'command', 'property', 'axis']
     list_display = ['item', 'axis', 'command', 'address', 'access', 'visual', 'command', 'property']
     list_filter = ['project__code',]
     list_per_page = 25
@@ -73,23 +68,16 @@ class RuleOnFieldAdmin(admin.ModelAdmin):
 
 @admin.register(ActionOnModel)
 class ActionOnModelAdmin(admin.ModelAdmin):
-    pass
+    list_display = ["project", "visual", "property"]
+    list_filter = ["project", "visual"]
+    inlines = [RuleOnFieldInline]
 
 
 @admin.register(ImportFile)
-class ImportFileAdmin(admin.ModelAdmin):
+class ImportFileAdmin(admin.ModelAdmin, ActionsMixin):
     search_fields = ['file', 'project']
-    list_display = ['name', 'project', 'nature','date_created', 'apply_action_on_variables', 'export_project_variables']
-    actions = ['apply_action_on_variables', 'export_project_variables']
-
-    def apply_action_on_variables(self, obj):
-        view_name = "iobrowsermapping:apply_actions"
-        link = reverse(view_name, args=[obj.pk])
-        view = "iobrowsermapping:process_data"
-        link2 = reverse(view, args=[obj.pk])
-
-        html = ("""<span> <input type="button" onclick="location.href=\'{}\'" value="Extraire les variables!" /> <input type = "button" onclick = "location.href=\'{}\'" value = "Map!"/> </span>""").format(link2, link)
-        return format_html(html)
+    list_display = ['name', 'project', 'nature','date_created', ]
+    actions = ['process_import_file', ]
 
 
     def export_project_variables(self, obj):
@@ -106,3 +94,7 @@ class ImportFileAdmin(admin.ModelAdmin):
 @admin.register(ExportFile)
 class ExportFileAdmin(admin.ModelAdmin):
     list_filter = ["project__code", ]
+
+@admin.register(E3DVisual)
+class E3DVisualAdmin(admin.ModelAdmin):
+    pass

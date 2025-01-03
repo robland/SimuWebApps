@@ -1,8 +1,6 @@
 from django.contrib import admin
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models import IntegerField
 from django.utils.html import format_html
 
 
@@ -16,8 +14,11 @@ E3D_MAPPING_FIELD = (
         ('Property', 'Property')
 )
 
-VISUALS = [
-    ('ConveyorVisual', 'ConveyorVisual')
+E3D_VISUALS = [
+    ('Item', 'Item'),
+    ('Item.Command', 'Item + Command'),
+    ('Item.Center', 'Item + Center'),
+    ('Item.Stopper', 'Item + Stopper')
 ]
 
 E3D_PROPERTIES = [
@@ -165,18 +166,22 @@ class ObjectField(models.Model):
 
 class ActionOnModel(models.Model):
     project = models.ForeignKey('Project', on_delete=models.CASCADE)
-    visual = models.CharField(max_length=25, choices=VISUALS, null=True, blank=True)
+    #visual = models.CharField(max_length=25, choices=E3D_VISUALS, null=True, blank=True)
+    visual = models.ForeignKey("E3DVisual", on_delete=models.CASCADE)
     property = models.CharField(max_length=25, choices=E3D_PROPERTIES, null=True, blank=True)
     # field = models.CharField(max_length=25, choices=E3D_MAPPING_FIELD)
     # value = models.CharField(max_length=25, null=True)
-    rules = models.ManyToManyField('RuleOnField')
+
+    def __str__(self):
+        return self.project.code + ": Visual = " + str(self.visual) + " Property = " + str(self.property)
+
 
 class Rule(models.Model):
     project = models.ForeignKey('Project', on_delete=models.CASCADE)
     object = models.CharField(max_length=25, choices=tuple(zip(BASE_OBJECTS, BASE_OBJECTS)))
     axis =  models.CharField(max_length=25, choices=tuple(zip(AXIS_VALUES, AXIS_VALUES)))
     # operator = models.CharField(max_length=25, choices=OPERATORS, blank=True, null=True)
-    visual = models.CharField(max_length=25, choices=VISUALS, null=True, blank=True)
+    visual = models.ForeignKey("E3DVisual", on_delete=models.CASCADE)
     property = models.CharField(max_length=25, choices=E3D_PROPERTIES, null=True, blank=True)
 
     def __str__(self):
@@ -188,6 +193,7 @@ class RuleOnField(models.Model):
     operator = models.CharField(max_length=25, choices=OPERATORS, blank=True, null=True)
     value = models.CharField(max_length=25, null=True)
     order = models.IntegerField(default=1)
+    rules = models.ForeignKey('ActionOnModel', on_delete=models.CASCADE)
 
     def __str__(self):
         return f"{self.field.upper()} {self.operator} {self.value}"
@@ -210,5 +216,16 @@ class ExportFile(models.Model):
     file = models.FileField(upload_to='data/exports/')
     date_created = models.DateTimeField(auto_now_add=True)
 
+class E3DVisual(models.Model):
+    parent = models.CharField(max_length=10, default='Item', unique=True)
+    child = models.CharField(max_length=10, blank=True, null=True)
 
+    def __str__(self):
+        return self.parent + "+" + self.child if self.child else self.parent
 
+    def get_data(self):
+        return self.parent + "." + self.child if self.child else self.parent
+
+    class Meta:
+        ordering = ['-id']
+        unique_together = ('parent', 'child')

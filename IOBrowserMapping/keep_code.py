@@ -1,16 +1,10 @@
-import functools
-
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
-from django.db import models
-from django.db.models import IntegerField, Q
-
-from argparse import Action
-
-from django.contrib import admin
-from django.contrib.auth.models import User
+from django.db.models import Q
 
 from .models import *
+from django.db.models import Q
+
+from .models import *
+
 
 # With Logic Operator
 
@@ -121,7 +115,7 @@ def recursive_operation(obj, processed_objects=None, q=None):
 """
 
 
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
 

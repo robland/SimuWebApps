@@ -1,7 +1,6 @@
 from django.forms import ModelForm
 
-from IOBrowserMapping.models import Rule, E3D_OBJECTS, Variable
-
+from IOBrowserMapping.models import Rule
 
 
 class RuleForm(ModelForm):

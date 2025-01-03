@@ -1,11 +1,26 @@
 import io
 import os
+from functools import partial
 
 import pandas as pd
 from django.core.files import File
+from django.db.models import Q
 from django.http import HttpResponseRedirect, FileResponse
 
-from IOBrowserMapping.models import Project, RuleOnField, Variable, ActionOnModel, Server, ExportFile
+from IOBrowserMapping.models import Project, Variable, ActionOnModel, Server, ExportFile
+from IOBrowserMapping.utils import read_data
+
+
+def process_visual(q, visual):
+    visual = visual.lower()
+    if visual == "item":
+        return visual
+    elif visual == "item.command":
+        return q.item + "." + q.command
+    elif visual == "item.axis":
+        return visual.replace("item", q.item).replace("axis", q.axis)
+    else:
+        return visual.replace("item", q.item)
 
 
 class ActionsMixin:
@@ -16,18 +31,46 @@ class ActionsMixin:
         queryset_to_update = Variable.objects.filter(project=project)
 
         for action in actions:
-
-            rules = action.rules.all()
-            new_values = {"visual": action.visual, "property": action.property}
+            rules = action.ruleonfield_set.all()
             dynamic_filter = dict()
+            q = Q()
             for rule in rules:
                 k, v = rule.get_keys_values()
-                dynamic_filter.setdefault(k,v)
-            print(dynamic_filter)
-            queryset_to_update.filter(**dynamic_filter).update(**new_values)
-            print(queryset_to_update.filter(**new_values).count())
-            self.message_user(request, "Action successfully completed!")
-            return HttpResponseRedirect(request.path_info)
+                q1 = Q(**{k:v})
+                q = (q & q1 )
+                print(q)
+
+            for query in queryset_to_update.filter(q):
+                query.visual = process_visual(query, action.visual.get_data())
+                query.property = action.property
+                query.save()
+
+            self.message_user(request, f"Action {action} successfully completed!")
+        return HttpResponseRedirect(request.path_info)
+
+    def process_import_file(self, request, queryset):
+        def get_or_create(file_object, row):
+            if not (None in [row[i] for i in range(len(row))]):
+                Variable.objects.get_or_create(
+                    item=row[0] + row[1],
+                    axis=row[2],
+                    command=row[3],
+                    address="%" + row[5] + row[6],
+                    access=row[7],
+                    project=file_object.project,
+                )
+        for q in queryset:
+            f = partial(get_or_create, q)
+            data = read_data(
+                q.file.name
+            )
+            data.apply(
+                f,
+                axis=1,
+            )
+
+        self.message_user(request, "Action successfully completed!")
+        return HttpResponseRedirect(request.path_info)
 
     def export_project_variables(self, request, queryset):
         project = queryset.first()

@@ -1,6 +1,8 @@
 from django.db.models.signals import post_migrate
 from django.dispatch import receiver
+
 from .models import Rule, Variable
+
 BASE_OBJECTS = ['GME', 'GM', 'GLA', 'GLB', 'UAH', 'GMA', 'GMD']
 AXIS_VALUES = ['TX', 'TY', 'TZ', 'LX', 'LY', 'LZ', 'RX', 'RY', 'RZ']
 

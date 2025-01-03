@@ -1,4 +1,4 @@
-from django.apps import AppConfig, apps
+from django.apps import AppConfig
 
 
 class IobrowsermappingConfig(AppConfig):
@@ -6,4 +6,4 @@ class IobrowsermappingConfig(AppConfig):
     name = 'IOBrowserMapping'
 
     def ready(self):
-        import IOBrowserMapping.signal
+        pass
